@@ -103,21 +103,16 @@ export const queryProperty = <T extends TSchema, X extends { [key: string]: TSch
     Type.Union([
       def,
       Type.Partial(
-        Type.Intersect(
-          [
-            Type.Object({
-              $gt: def,
-              $gte: def,
-              $lt: def,
-              $lte: def,
-              $ne: def,
-              $in: def.type === 'array' ? def : Type.Array(def),
-              $nin: def.type === 'array' ? def : Type.Array(def)
-            }),
-            Type.Object(extension)
-          ],
-          { additionalProperties: false }
-        )
+        Type.Object({
+          $gt: def,
+          $gte: def,
+          $lt: def,
+          $lte: def,
+          $ne: def,
+          $in: def.type === 'array' ? def : Type.Array(def),
+          $nin: def.type === 'array' ? def : Type.Array(def),
+          ...extension
+        })
       )
     ])
   )
@@ -176,7 +171,7 @@ export const querySyntax = <
   const $or = Type.Array(propertySchema)
   const $and = Type.Array(Type.Union([propertySchema, Type.Object({ $or })]))
 
-  return Type.Intersect(
+  return Type.Composite(
     [
       Type.Partial(
         Type.Object(
