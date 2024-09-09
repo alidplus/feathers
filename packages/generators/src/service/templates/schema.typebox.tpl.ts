@@ -90,7 +90,7 @@ export const ${camelName}QueryProperties = Type.Pick(${camelName}Schema, [
       : `'text'`
   }
 ])
-export const ${camelName}QuerySchema = Type.Intersect([
+export const ${camelName}QuerySchema = Type.Composite([
   querySyntax(${camelName}QueryProperties),
   // Add additional query properties here
   Type.Object({}, { additionalProperties: false })
