@@ -129,15 +129,28 @@ export class MongoDbAdapter<
   }
 
   /* TODO: Remove $out and $merge stages, else it returns an empty cursor. I think its safe to assume this is primarily for querying. */
-  async aggregateRaw(params: ServiceParams) {
-    const model = await this.getModel(params)
+  parsePipeline(params: ServiceParams) {
     const pipeline = params.pipeline || []
     const index = pipeline.findIndex((stage: Document) => stage.$feathers)
     const before = index >= 0 ? pipeline.slice(0, index) : []
-    const feathersPipeline = this.makeFeathersPipeline(params)
     const after = index >= 0 ? pipeline.slice(index + 1) : pipeline
+    return { before, after }
+  }
+
+  async aggregateRaw(params: ServiceParams) {
+    const model = await this.getModel(params)
+    const { before, after } = this.parsePipeline(params)
+    const feathersPipeline = this.makeFeathersPipeline(params)
 
     return model.aggregate([...before, ...feathersPipeline, ...after], params.mongodb)
+  }
+
+  async countAggregate(params: ServiceParams) {
+    const model = await this.getModel(params)
+    const { before, after } = this.parsePipeline(params)
+
+    const res = await model.aggregate([...before, ...after, { $count: 'total' }], params.mongodb).then((result) => result.toArray())
+    return res?.pop()?.totla ?? 0
   }
 
   makeFeathersPipeline(params: ServiceParams) {
@@ -210,21 +223,6 @@ export class MongoDbAdapter<
     const { useEstimatedDocumentCount } = this.getOptions(params)
     const { query } = this.filterQuery(null, params)
 
-    if (params.pipeline) {
-      const aggregateParams = {
-        ...params,
-        query: {
-          ...params.query,
-          $select: [this.id],
-          $sort: undefined,
-          $skip: undefined,
-          $limit: undefined
-        }
-      }
-      const result = await this.aggregateRaw(aggregateParams).then((result) => result.toArray())
-      return result.length
-    }
-
     const model = await this.getModel(params)
 
     if (useEstimatedDocumentCount && typeof model.estimatedDocumentCount === 'function') {
@@ -294,6 +292,10 @@ export class MongoDbAdapter<
       return result.then((result) => result.toArray())
     }
 
+    const getTotal = () => {
+      return params.pipeline ? this.countAggregate(params) : this.countDocuments(params)
+    }
+
     if (paginationDisabled) {
       if (filters.$limit === 0) {
         return [] as Result[]
@@ -311,7 +313,7 @@ export class MongoDbAdapter<
       }
     }
 
-    const [data, total] = await Promise.all([getData(), this.countDocuments(params)])
+    const [data, total] = await Promise.all([getData(), getTotal()])
 
     return {
       total,
