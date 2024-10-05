@@ -149,7 +149,7 @@ export class MongoDbAdapter<
     const model = await this.getModel(params)
     const { before, after } = this.parsePipeline(params)
 
-    const res = await model.aggregate([...before, ...after, { $count: 'total' }], params.mongodb).then((result) => result.toArray())
+    const res = await model.aggregate([...before, ...after, { $count: 'total' }], params.mongodb).toArray()
     return res?.pop()?.totla ?? 0
   }
 
